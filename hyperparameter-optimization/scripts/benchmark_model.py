@@ -25,7 +25,8 @@ class BenchmarkClassifier(LightningModule):
             hidden_activation = self.hparams["hidden_activation"],
             output_activation = None,
             layer_norm = self.hparams["layer_norm"],
-            batch_norm = self.hparams["batch_norm"]                                    
+            batch_norm = self.hparams["batch_norm"]                                    ,
+            dropout = self.hparams["dropout"]
         )
         
     def setup(self, stage):
