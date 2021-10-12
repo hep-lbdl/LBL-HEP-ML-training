@@ -2,6 +2,7 @@
 input_directory: '/global/cscratch1/sd/danieltm/ExaTrkX/quark_gluon_tagging'
 train_split: [80000, 10000, 10000]
 train_batch_size: 100
+signal_goal: 0.5
 
 # Model hyperparameters
 n_layers: 3
@@ -9,6 +10,7 @@ n_channels: 64
 layer_norm: False
 batch_norm: False
 hidden_activation: ReLU
+dropout: 0.1
 
 # Training hyperparameters
 lr: 0.01

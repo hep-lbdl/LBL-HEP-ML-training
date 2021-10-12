@@ -1,12 +1,16 @@
 import torch
+import torch.nn.functional as F
+from torch.utils.data import TensorDataset, random_split, DataLoader
+
 import pytorch_lightning as pl
 from pytorch_lightning import LightningModule
-import torch.nn.functional as F
+
+import numpy as np
+from sklearn.metrics import roc_auc_score, roc_curve
 import energyflow
 
-from torch.utils.data import TensorDataset, random_split, DataLoader
 from utils import make_mlp
-from sklearn.metrics import roc_auc_score
+
 
 
 class BenchmarkClassifier(LightningModule):
@@ -79,7 +83,19 @@ class BenchmarkClassifier(LightningModule):
         self.log_dict({"train_loss": loss}, on_step=False, on_epoch=True)
         
         return loss
+    
+    def get_background_rejection(self, truth, predictions):
         
+        fpr, tpr, _ = roc_curve(truth.bool().cpu().detach(), predictions.cpu().detach())
+        
+        # Calculate which threshold gives the best signal goal
+        signal_goal_idx = abs(tpr - self.hparams["signal_goal"]).argmin()
+        
+        eps = fpr[signal_goal_idx]
+        
+        return eps
+        
+    
     def get_metrics(self, batch, truth, output):
         
         predictions = torch.sigmoid(output) > self.hparams["edge_cut"]
@@ -92,8 +108,9 @@ class BenchmarkClassifier(LightningModule):
         pur = edge_true_positive / edge_positive
 
         auc = roc_auc_score(truth.bool().cpu().detach(), torch.sigmoid(output).cpu().detach())
+        eps = self.get_background_rejection(truth, predictions)
         
-        return predictions, eff, pur, auc
+        return predictions, eff, pur, auc, eps
     
     def shared_evaluation(self, batch, batch_idx, log=False):
         
@@ -102,9 +119,9 @@ class BenchmarkClassifier(LightningModule):
         
         loss = F.binary_cross_entropy_with_logits(output, y)
         
-        predictions, eff, pur, auc = self.get_metrics(batch, y, output)
+        predictions, eff, pur, auc, eps = self.get_metrics(batch, y, output)
         
-        metrics = {"val_loss": loss, "eff": eff, "pur": pur, "auc": auc}
+        metrics = {"val_loss": loss, "eff": eff, "pur": pur, "auc": auc, "eps": eps}
         self.log_dict(metrics)
         
         return metrics
@@ -113,7 +130,13 @@ class BenchmarkClassifier(LightningModule):
 
         outputs = self.shared_evaluation(batch, batch_idx, log=True)
 
-        return outputs["val_loss"]
+        return {"loss": outputs["val_loss"], "eps": outputs["eps"]}
+    
+    def validation_epoch_end(self, step_outputs):
+        mean_eps = np.mean([output["eps"] for output in step_outputs])
+        
+        if mean_eps != 0:
+            self.log_dict({"inv_eps": 1/mean_eps})
 
     def test_step(self, batch, batch_idx):
         """

@@ -6,7 +6,8 @@ def make_mlp(
     hidden_activation="ReLU",
     output_activation="ReLU",
     layer_norm=False,
-    batch_norm=False
+    batch_norm=False,
+    dropout=None
 ):
     """Construct an MLP with specified fully-connected layers."""
     hidden_activation = getattr(nn, hidden_activation)
@@ -22,6 +23,8 @@ def make_mlp(
             layers.append(nn.LayerNorm(sizes[i + 1]))
         if batch_norm:
             layers.append(nn.BatchNorm1d(sizes[i + 1]))
+        if dropout:
+            layers.append(nn.Dropout(p=dropout))
         layers.append(hidden_activation())
     # Final layer
     layers.append(nn.Linear(sizes[-2], sizes[-1]))
@@ -30,5 +33,7 @@ def make_mlp(
             layers.append(nn.LayerNorm(sizes[-1]))
         if batch_norm:
             layers.append(nn.BatchNorm1d(sizes[-1]))
+        if dropout:
+            layers.append(nn.Dropout(p=dropout))
         layers.append(output_activation())
     return nn.Sequential(*layers)
