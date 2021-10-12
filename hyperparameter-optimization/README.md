@@ -2,7 +2,7 @@
 
 ## Dataset
 
-The dataset is appreciatively borrowed from Kimoske, Metodiev & Thaler's [EnergyFlow](https://energyflow.network/docs/datasets/#quark-and-gluon-nsubs) library. We have 100,000 jets, each with 45 N-subjettiness observables and a truth value (`1 = quark`, `0 = gluon`). It can be loaded with 
+The dataset is appreciatively borrowed from Kimoske, Metodiev & Thaler's [EnergyFlow](https://energyflow.network/docs/datasets/#quark-and-gluon-nsubs) library. We have 100,000 jets, each with 45 N-subjettiness observables and a truth value (`1 = quark`, `0 = gluon`). After `pip install energyflow`, it can be loaded with 
 
 ```
 all_events = energyflow.qg_nsubs.load(num_data=-1, cache_dir=DATA_DIRECTORY)
