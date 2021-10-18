@@ -20,12 +20,12 @@ class BenchmarkClassifier(LightningModule):
         self.save_hyperparameters(hparams)
 
         self.layers = make_mlp(
-            input_size = 45,
+            input_size = self.hparams["input_channels"],
             sizes = [self.hparams["n_channels"]] * self.hparams["n_layers"] + [1],
             hidden_activation = self.hparams["hidden_activation"],
             output_activation = None,
             layer_norm = self.hparams["layer_norm"],
-            batch_norm = self.hparams["batch_norm"]                                    ,
+            batch_norm = self.hparams["batch_norm"],
             dropout = self.hparams["dropout"]
         )
         
@@ -34,6 +34,11 @@ class BenchmarkClassifier(LightningModule):
         all_jets = energyflow.qg_nsubs.load(num_data=-1, cache_dir=self.hparams["input_directory"])
         dataset = TensorDataset(*[torch.from_numpy(tensor).float() for tensor in all_jets])
         self.trainset, self.valset, self.testset = random_split(dataset, self.hparams["train_split"])
+        
+        if self.trainer is not None and "logger" in self.trainer.__dict__.keys() and "_experiment" in self.logger.__dict__.keys():
+            self.logger.experiment.define_metric("val_loss" , summary="min")
+            self.logger.experiment.define_metric("auc" , summary="max")
+            self.logger.experiment.define_metric("inv_eps" , summary="max")
         
     def train_dataloader(self):
         if self.trainset is not None:
@@ -74,14 +79,15 @@ class BenchmarkClassifier(LightningModule):
         
         return [optimizer], [scheduler]
     
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx, log=True):
         
         input_data, y = batch
         output = self(input_data).squeeze()
         
-        loss = F.binary_cross_entropy_with_logits(output, y, pos_weight = torch.tensor(self.hparams["weight"]))
+        loss = F.binary_cross_entropy_with_logits(output, y.to("cuda"), pos_weight = torch.tensor(self.hparams["weight"]))
         
-        self.log_dict({"train_loss": loss}, on_step=False, on_epoch=True)
+        if log:
+            self.log_dict({"train_loss": loss}, on_step=False, on_epoch=True)
         
         return loss
     
@@ -118,12 +124,14 @@ class BenchmarkClassifier(LightningModule):
         input_data, y = batch
         output = self(input_data).squeeze()
         
-        loss = F.binary_cross_entropy_with_logits(output, y)
+        loss = F.binary_cross_entropy_with_logits(output, y.to("cuda"))
         
-        predictions, eff, pur, auc, eps = self.get_metrics(batch, y, output)
+        predictions, eff, pur, auc, eps = self.get_metrics(batch, y.to("cuda"), output)
         
         metrics = {"val_loss": loss, "eff": eff, "pur": pur, "auc": auc, "eps": eps}
-        self.log_dict(metrics)
+        
+        if log:
+            self.log_dict(metrics)
         
         return metrics
     
@@ -149,6 +157,7 @@ class BenchmarkClassifier(LightningModule):
     
     def forward(self, x):
         
-        x = self.layers(x)
+        x = self.layers(x[:, :self.hparams["input_channels"]].to("cuda"))
+        
         
         return x

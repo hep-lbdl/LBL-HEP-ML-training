@@ -5,15 +5,15 @@ train_batch_size: 100
 signal_goal: 0.5
 
 # Model hyperparameters
-n_layers: 3
-n_channels: 64
-layer_norm: False
-batch_norm: False
-hidden_activation: ReLU
-dropout: 0.1
+n_layers: 6
+n_channels: 1024
+layer_norm: True
+batch_norm: True
+hidden_activation: Tanh
+dropout: 0.2
 
 # Training hyperparameters
-lr: 0.01
+lr: 0.001
 patience: 15
 factor: 0.3
 weight: 1
